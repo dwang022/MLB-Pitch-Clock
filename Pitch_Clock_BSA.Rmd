@@ -1,0 +1,597 @@
+---
+title: "MLB pitch clock"
+author: "Daniel Wang"
+date: "2023-05-01"
+output: pdf_document
+---
+
+```{r}
+library(dplyr)
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(tidyr)
+library(readxl)
+library(readr)
+mlb <- read_excel("league_wide_pitching.xlsx")
+
+mlb %>%
+ggplot(aes(x = factor(Stat, level=c('BA', 'XBA', 'OBP', 'SLG', 'XSLG', 'WOBA', 'XWOBA')), y = Difference, fill = Stat)) + geom_bar(stat = 'identity') + theme(legend.position = "none") + labs(x = "Stat", y = "Percent Difference", title = "Percent Change in League Wide Hitting Stats from 2022 to 2023")
+
+ggsave("league_wide_graph.jpeg")
+```
+
+```{r}
+mlb %>%
+  ggplot(aes(x = factor(Stat, level = c('BA', 'XBA', 'OBP', 'SLG', 'XSLG', 'WOBA', 'XWOBA')), y = Difference, fill = Stat)) +
+  geom_bar(stat = 'identity', position = "dodge", color = "white") +  # Add color to separate bars
+  scale_fill_brewer(palette = "Set3") + theme(legend.position = "none") +  labs(
+    x = "Stat",
+    y = "Percent Difference",
+    title = "Change in League-Wide Hitting Stats from 2022 to 2023"
+  ) +
+  geom_text(
+    aes(label = paste0(round(Difference, 1), "%")),
+    position = position_dodge(width = 0.9),
+    vjust = -0.5,  # Adjust the vertical position of labels
+    size = 3
+  )
+
+ggsave("NEW_leaguewidestats.png")
+```
+
+
+```{r}
+stats <- read.csv("stats_2022.csv")
+tempo <- read.csv("pitch_tempo.csv")
+stats
+tempo <- tempo %>%
+  rename("player_id" = "entity_id")
+tempo
+  
+good_data <- inner_join(stats, tempo, by = "player_id")
+good_data %>%
+  arrange(desc(median_seconds_empty))
+
+```
+
+```{r}
+stats_2023 <- read.csv("stats.csv")
+stats_yay <- inner_join(good_data, stats_2023, by = "player_id")
+stats_yay <- stats_yay %>%
+  mutate(era = p_era.y - p_era.x) %>%
+  arrange(desc(median_seconds_empty)) %>%
+  filter(median_seconds_empty >= 20) %>%
+  filter(era > -10) %>%
+  mutate(name = paste(first_name.x, last_name.x, sep = " ")) %>%
+  mutate(pos = era <= 0)
+
+stats_yay
+stats_yay %>%
+  arrange(name, median_seconds_empty)
+
+
+stats_yay %>%
+  ggplot(aes(x = reorder(name, median_seconds_empty), y= era, fill = pos)) + geom_bar(stat ='identity') + theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + theme(legend.position = "none") + labs(y = "Change in ERA", title = "Change in ERA from 2022 to 2023 of Pitchers with the Slowest Tempo") + geom_label(x = 10, y = 5, label="Mean = 0.592", fill = "white")
+
+ggsave("era_slow_pitchers.jpeg")
+
+```
+
+
+```{r}
+stats_yay %>%
+  ggplot(aes(x = reorder(name, median_seconds_empty), y = era, fill = pos)) +
+  geom_bar(stat = 'identity', position = 'dodge', color = 'white') +  # Add color to separate bars
+  scale_fill_brewer(palette = 'Set2') +  # Use a different color palette
+  labs(
+    y = 'Change in ERA',
+    title = 'Change in ERA from 2022 to 2023 of Pitchers with the Slowest Tempo',
+    x = 'Pitcher',
+    fill = 'Position'
+  ) + theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + theme(legend.position = "none") +
+  geom_label(
+    aes(x = 15, y = 7.1, label = 'Mean = +0.592'),
+    fill = 'white',
+    color = 'black',
+    size = 4) +   geom_hline(yintercept = 0, linetype = 'dashed', color = 'black', size = 0.75)  # Add a reference line at y = 0
+
+ggsave("NEW_eraslowpitchers.png")
+```
+
+
+
+```{r}
+stats_yay %>%
+  ggplot(aes(x = reorder(name, era), y= era)) + geom_bar(stat ='identity') +  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())
+
+stats_yay %>%
+  summarize(mean = mean(era))
+
+```
+
+
+```{r}
+
+
+stats_yay %>%
+  ggplot(aes(x = reorder(name, median_seconds_empty), y= era, fill = pos)) + geom_bar(stat ='identity') + theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + theme(legend.position = "none") + labs(y = "Change in ERA", title = "Change in ERA from 2022 to 2023 of Pitchers with the Slowest Tempo") + geom_label(x = 15, y = 7.1, label="Mean = +0.592", fill = "white")
+
+ggsave("era_graph.jpeg")
+```
+
+
+
+
+
+```{r}
+gang <- stats_yay %>%
+  mutate(xwoba = xwoba.y - xwoba.x) %>%
+  mutate(pos2 = xwoba <= 0)
+gang %>%
+  summarize(mean = mean(xwoba))
+
+ gang %>%
+   ggplot(aes(x = reorder(name, median_seconds_empty), y= xwoba, fill = pos2)) + geom_bar(stat ='identity') + theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + theme(legend.position = "none") + labs(y = "Change in xwOBA", title = "Change in xwOBA from 2022 to 2023 of Pitchers with the Slowest Tempo") + geom_label(x = 15, y = 0.17, label="Mean = +0.0184", fill = "white")
+ 
+ ggsave("xwoba.jpeg")
+
+```
+
+
+```{r}
+gang %>%
+  ggplot(aes(x = reorder(name, median_seconds_empty), y = xwoba, fill = pos2)) +
+  geom_bar(stat = 'identity', position = 'dodge', color = 'white') +  # Add color to separate bars
+  scale_fill_brewer(palette = 'Set2') +  # Use a different color palette
+  labs(
+    y = 'Change in xwOBA',
+    title = 'Change in xwOBA from 2022 to 2023 of Pitchers with the Slowest Tempo',
+    x = 'Pitcher',
+    fill = 'Position'
+  )  + theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + theme(legend.position = "none")+  geom_label(
+    aes(x = 15, y = 0.17, label = 'Mean = +0.0184'),
+    fill = 'white',
+    color = 'black',
+    size = 4
+  ) +
+  geom_hline(yintercept = 0, linetype = 'dashed', color = 'black', size = 0.75) # Add a reference line at y = 0
+
+ggsave("NEW_xwoba.png")
+```
+
+
+```{r}
+testing <- inner_join(good_data, stats_2023, by = "player_id") %>%
+  mutate(era = p_era.y - p_era.x) %>%
+  arrange(desc(median_seconds_empty)) %>%
+  mutate(name = paste(first_name.x, last_name.x, sep = " ")) %>%
+  mutate(pos = era <= 0) %>%
+  mutate(yes = median_seconds_empty >= 20) %>%
+  filter(era > -10) %>%
+  filter(era < 10)
+
+testing %>%
+   ggplot(aes(x = reorder(name, median_seconds_empty), y= era, fill = yes)) + geom_bar(stat ='identity', width = 2) + theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + scale_fill_manual(labels = c("Normal", "Slow"), values = c("#00BFC4", "#F8766D")) + labs(fill = "Tempo") +
+labs(y = "Change in ERA", title = "Change in ERA for Pitchers from 2022 to 2023")
+
+testing %>%
+  filter(yes == TRUE) %>%
+  mutate(mean_haha = mean(era)) %>%
+  select(mean_haha)
+
+testing %>%
+  filter(yes == FALSE) %>%
+  mutate(mean_haha = mean(era)) %>%
+  select(mean_haha)
+
+testing %>%
+  filter(yes == TRUE) %>%
+  summarize(mean = mean(era))
+
+testing %>%
+  filter(yes == FALSE) %>%
+  summarize(mean = mean(era))
+
+testing %>%
+  summarize(mean = mean(era))
+
+```
+## pitchers as a whole worse!
+
+```{r}
+testing %>%
+   ggplot(aes(x = reorder(name, median_seconds_empty), y= era, fill = yes)) + geom_bar(stat ='identity', width = 1.5) + theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + scale_fill_manual(labels = c("Normal", "Slow"), values = c("#00BFC4", "#F8766D")) + labs(fill = "Tempo") +
+labs(y = "Change in ERA", title = "Change in ERA for All Pitchers from 2022 to 2023") + geom_label(x = 340, y = 9, label="Mean = +0.592", fill = "#F8766D", size = 3) + geom_label(x = 125, y = 9, label="Mean = +0.645", fill = "#00BFC4", size = 3)
+
+
+
+ggsave("era2_all.jpeg")
+```
+
+
+```{r}
+testing %>%
+  ggplot(aes(x = reorder(name, median_seconds_empty), y = era, fill = yes)) +
+  geom_bar(stat = 'identity', position = 'dodge', width = 0.7) +  # Adjust bar width and add color
+  scale_fill_brewer(palette = 'Set2', labels  = c("Normal", "Slow")) +  # Use a different color palette
+  labs(
+    y = 'Change in ERA',
+    title = 'Change in ERA for All Pitchers from 2022 to 2023',
+    x = 'Pitcher',
+    fill = 'Tempo'
+  ) +
+ theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  geom_label(
+    aes(x = 340, y = 9, label = 'Mean = +0.592'),
+    fill = '#FC8D62',
+    color = 'black',
+    size = 3
+  ) +
+  geom_label(
+    aes(x = 125, y = 9, label = 'Mean = +0.645'),
+    fill = '#66C2A5',
+    color = 'black',
+    size = 3
+  )
+
+ggsave("NEW_era_all.png")
+```
+
+
+
+```{r}
+testing2 <- inner_join(good_data, stats_2023, by = "player_id") %>%
+  mutate(xwoba = xwoba.y - xwoba.x) %>%
+  mutate(name = paste(first_name.x, last_name.x, sep = " ")) %>%
+  mutate(yes = median_seconds_empty >= 20) %>%
+  mutate(era = p_era.y - p_era.x) %>%
+  filter(era > -10) %>%
+  filter(era < 10)
+
+
+testing2 %>%
+  filter(yes == TRUE) %>%
+  summarize(mean = mean(xwoba))
+
+testing2 %>%
+  filter(yes == FALSE) %>%
+  summarize(mean = mean(xwoba))
+
+testing2 %>%
+  summarize(mean = mean(xwoba))
+
+```
+
+
+```{r}
+testing2 %>%
+   ggplot(aes(x = reorder(name, median_seconds_empty), y= xwoba, fill = yes)) + geom_bar(stat ='identity', width = 1.5) + theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) + scale_fill_manual(labels = c("Normal", "Slow"), values = c("#00BFC4", "#F8766D")) + labs(fill = "Tempo") +
+labs(y = "Change in xwOBA", title = "Change in xwOBA for All Pitchers from 2022 to 2023") + expand_limits(y = c(-0.15, 0.25)) + geom_label(x = 340, y = 0.22, label="Mean = +0.01839", fill = "#F8766D", size = 3) + geom_label(x = 135, y = 0.22, label="Mean = +0.01854", fill = "#00BFC4", size = 3)
+
+ggsave("xwoba2_all.jpeg")
+```
+
+
+```{r}
+testing2 %>%
+  ggplot(aes(x = reorder(name, median_seconds_empty), y = xwoba, fill = yes)) +
+  geom_bar(stat = 'identity', position = 'dodge', width = 0.7) +  # Adjust bar width and add color
+  scale_fill_brewer(palette = 'Set2', labels  = c("Normal", "Slow")) +  # Use a different color palette
+  labs(
+    y = 'Change in xwOBA',
+    title = 'Change in xwOBA for All Pitchers from 2022 to 2023',
+    x = 'Pitcher',
+    fill = 'Tempo'
+  ) +  theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  expand_limits(y = c(-0.15, 0.25)) +  # Expand y-axis limits
+  geom_label(
+    aes(x = 340, y = 0.22, label = 'Mean = +0.01839'),
+    fill = '#FC8D62',
+    color = 'black',
+    size = 3
+  ) +
+  geom_label(
+    aes(x = 135, y = 0.22, label = 'Mean = +0.01854'),
+    fill = '#66C2A5',
+    color = 'black',
+    size = 3
+  )
+
+ggsave("NEW_xwoba_all.png")
+
+```
+
+
+
+```{r}
+testing2 %>%
+   ggplot(aes(x = xwoba, y= era)) + geom_point() + labs(x = "xwOBA", y = "ERA", title = "Association Between xwOBA and ERA")
+
+ggsave("era_xwoba.jpeg")
+
+```
+
+```{r}
+head(testing2)
+
+testing2 %>%
+  ggplot(aes(x = xwoba, y = era, color = yes)) +
+  geom_point(alpha = 0.7) +  # Adjust transparency for better visibility
+  geom_smooth(method = "lm", se = TRUE, linetype = "dashed", color = "black") +  # Add a trendline
+  scale_color_manual(labels = c("Normal", "Slow"), values = c('#FC8D62', '#66C2A5')) +  # Use a different color palette
+  labs(
+    x = "Change in xwOBA",
+    y = "Change in ERA",
+    title = "Association Between xwOBA and ERA",
+    color = "Tempo",
+    size = "Tempo"
+  ) +
+  theme(
+    legend.position = "bottom"  # Adjust legend position
+  )
+
+ggsave("NEW_eravsxwoba.png")
+```
+
+
+
+```{r}
+cor(testing2$xwoba, testing2$era)
+```
+
+
+
+
+```{r}
+case <- read_excel("Pitcher_case_study.xlsx")
+
+c <- case %>%
+  filter(Starter == "Yes") %>%
+  ggplot(aes(x = Pitcher, y = Tempo, fill = Pitcher)) + geom_col(stat = "identity") + scale_fill_brewer(palette = "Set3") + facet_grid(~ Year, scales = "free_x", space = "free_x") +  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8),
+    axis.title.x = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(
+    aes(label = Tempo),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Pitcher",
+    y = "Tempo")
+
+a <- case %>%
+  filter(Starter == "Yes") %>%
+  ggplot(aes(x = Pitcher, y = xERA, fill = Pitcher)) + geom_col(stat = "identity") + scale_fill_brewer(palette = "Set3") + facet_grid(~ Year, scales = "free_x", space = "free_x") +  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8),
+    axis.title.x = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(
+    aes(label = xERA),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Pitcher",
+    y = "xERA")
+
+b <- case %>%
+  filter(Starter == "Yes") %>%
+  ggplot(aes(x = Pitcher, y = xwOBA, fill = Pitcher)) + geom_col(stat = "identity") + scale_fill_brewer(palette = "Set3") + facet_grid(~ Year, scales = "free_x", space = "free_x") +  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8),
+    axis.title.x = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(
+    aes(label = xwOBA),
+    position = position_stack(vjust = 0.5),
+    size = 2.5,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Pitcher",
+    y = "xwOBA")
+
+d <- case %>%
+  filter(Starter == "Yes") %>%
+  ggplot(aes(x = Pitcher, y = xFIP, fill = Pitcher)) + geom_col(stat = "identity") + scale_fill_brewer(palette = "Set3") + facet_grid(~ Year, scales = "free_x", space = "free_x") +  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8),
+    axis.title.x = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(
+    aes(label = xFIP),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Pitcher",
+    y = "xFIP")
+
+ra <- case %>%
+  filter(Starter == "No") %>%
+  ggplot(aes(x = Pitcher, y = Tempo, fill = Pitcher)) + geom_col(stat = "identity") + scale_fill_brewer(palette = "Set3") + facet_grid(~ Year, scales = "free_x", space = "free_x") +  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8),
+    axis.title.x = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(
+    aes(label = Tempo),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Pitcher",
+    y = "Tempo")
+
+rb <- case %>%
+  filter(Starter == "No") %>%
+  ggplot(aes(x = Pitcher, y = xERA, fill = Pitcher)) + geom_col(stat = "identity") + scale_fill_brewer(palette = "Set3") + facet_grid(~ Year, scales = "free_x", space = "free_x") +  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8),
+    axis.title.x = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(
+    aes(label = xERA),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Pitcher",
+    y = "xERA")
+
+rc <- case %>%
+  filter(Starter == "No") %>%
+  ggplot(aes(x = Pitcher, y = xwOBA, fill = Pitcher)) + geom_col(stat = "identity") + scale_fill_brewer(palette = "Set3") + facet_grid(~ Year, scales = "free_x", space = "free_x") +  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8),
+    axis.title.x = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(
+    aes(label = xwOBA),
+    position = position_stack(vjust = 0.5),
+    size = 2.5,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Pitcher",
+    y = "xwOBA")
+
+rd <- case %>%
+  filter(Starter == "No") %>%
+  ggplot(aes(x = Pitcher, y = xFIP, fill = Pitcher)) + geom_col(stat = "identity") + scale_fill_brewer(palette = "Set3") + facet_grid(~ Year, scales = "free_x", space = "free_x") +  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8),
+    axis.title.x = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(
+    aes(label = xFIP),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Pitcher",
+    y = "xFIP")
+```
+```{r}
+case %>%
+  filter(Starter == "Yes") %>%
+  ggplot(aes(x = Pitcher, y = Tempo, fill = Pitcher)) + geom_col(stat = "identity") + theme(legend.position = "none") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 6)) + facet_grid(~ Year) + theme(axis.title.x = element_blank())
+
+```
+
+```{r}
+case %>%
+  filter(Starter == "Yes") %>%
+  ggplot(aes(x = Pitcher, y = Tempo, fill = Pitcher)) + geom_col(stat = "identity") + theme(legend.position = "none") + theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1, size = 6)) + facet_grid(~ Year) + theme(axis.title.x = element_blank())
+
+
+case %>%
+  filter(Starter == "Yes") %>%
+  ggplot(aes(x = Pitcher, y = Tempo, fill = Pitcher)) + geom_col(stat = "identity") + scale_fill_brewer(palette = "Set3") + facet_grid(~ Year, scales = "free_x", space = "free_x") +  theme(
+    axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1, size = 8),
+    axis.title.x = element_blank(),
+    legend.position = "none"
+  ) +
+  geom_text(
+    aes(label = Tempo),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "black",
+    show.legend = FALSE
+  ) +
+  labs(
+    x = "Pitcher",
+    y = "Tempo")
+
+```
+
+
+
+```{r}
+library("cowplot")
+plot_grid(c, a, b, d)
+ggsave("NEW_starters.png")
+
+```
+
+```{r}
+plot_grid(ra, rb, rc, rd)
+ggsave("NEW_relievers.png")
+```
+
+```{r}
+case %>%
+  filter(Year == 2022) %>%
+  filter(Starter == "Yes") %>%
+  summarize(a = mean(Tempo), b = mean(xERA), c = mean(xwOBA), d = mean(xFIP))
+
+case %>%
+  filter(Year == 2023) %>%
+  filter(Starter == "Yes") %>%
+  summarize(a = mean(Tempo), b = mean(xERA), c = mean(xwOBA), d = mean(xFIP))
+
+case %>%
+  filter(Year == 2022) %>%
+  filter(Starter == "No") %>%
+  summarize(a = mean(Tempo), b = mean(xERA), c = mean(xwOBA), d = mean(xFIP))
+
+case %>%
+  filter(Year == 2023) %>%
+  filter(Starter == "No") %>%
+  summarize(a = mean(Tempo), b = mean(xERA), c = mean(xwOBA), d = mean(xFIP))
+  
+
+  
+```
+
+
+
+```{r}
+case %>%
+  filter(Starter == "Yes") %>%
+  ggplot(aes(x = Pitcher, y = Tempo, fill = Pitcher)) + geom_col(stat = "identity") + theme(legend.position = "none") + theme(axis.text.x = element_text(angle = 90, vjust = 0.1, hjust=1, size = 8)) + facet_grid(~ Year)
+
+```
+
